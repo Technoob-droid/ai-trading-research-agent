@@ -43,3 +43,22 @@ def pm_judge_node(state: ResearchState):
     prompt = f"Ticker: {state['ticker']} (Currency: {cur})\nFundamentals: {state['market_data']}\nTechnicals (including ATR-14): {state['technical_indicators']}\n\nBull Thesis:\n{state['bull_case']}\nBull Rebuttal:\n{state['bull_rebuttal']}\n\nBear Thesis:\n{state['bear_case']}\nBear Rebuttal:\n{state['bear_rebuttal']}"
     decision = llm.invoke([SystemMessage(content="You are a Senior Hedge Fund Portfolio Manager. Evaluate both sides of the debate objectively and output a risk-managed TradeDecision using ATR-14 for realistic stop-loss and target levels."), HumanMessage(content=prompt)])
     return {"trade_plan": decision.model_dump()}
+
+def build_research_graph():
+    workflow = StateGraph(ResearchState)
+    workflow.add_node("market_data", market_data_node)
+    workflow.add_node("technicals", technicals_node)
+    workflow.add_node("news_research", news_research_node)
+    workflow.add_node("thesis_gen", thesis_generation_node)
+    workflow.add_node("adversarial_debate", adversarial_debate_node)
+    workflow.add_node("pm_judge", pm_judge_node)
+    workflow.add_node("compile_report", report_compiler_node)
+    workflow.set_entry_point("market_data")
+    workflow.add_edge("market_data", "technicals")
+    workflow.add_edge("technicals", "news_research")
+    workflow.add_edge("news_research", "thesis_gen")
+    workflow.add_edge("thesis_gen", "adversarial_debate")
+    workflow.add_edge("adversarial_debate", "pm_judge")
+    workflow.add_edge("pm_judge", "compile_report")
+    workflow.add_edge("compile_report", END)
+    return workflow.compile()
