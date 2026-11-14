@@ -1,3 +1,31 @@
+import os
+import yfinance as yf
+from tavily import TavilyClient
+
+def fetch_market_metrics(ticker: str) -> dict:
+    stock = yf.Ticker(ticker)
+    info = stock.info
+    hist = stock.history(period="1mo")
+    pct_1m = round(((hist["Close"].iloc[-1] - hist["Close"].iloc[0]) / hist["Close"].iloc[0]) * 100, 2) if len(hist) > 1 else 0.0
+    return {
+        "name": info.get("shortName", ticker),
+        "sector": info.get("sector", "N/A"),
+        "industry": info.get("industry", "N/A"),
+        "current_price": info.get("currentPrice", info.get("regularMarketPrice", "N/A")),
+        "market_cap": info.get("marketCap", "N/A"),
+        "trailing_pe": info.get("trailingPE", "N/A"),
+        "forward_pe": info.get("forwardPE", "N/A"),
+        "price_to_book": info.get("priceToBook", "N/A"),
+        "roe": round(info["returnOnEquity"] * 100, 2) if info.get("returnOnEquity") is not None else "N/A",
+        "roa": round(info["returnOnAssets"] * 100, 2) if info.get("returnOnAssets") is not None else "N/A",
+        "debt_to_equity": info.get("debtToEquity", "N/A"),
+        "profit_margin": round(info["profitMargins"] * 100, 2) if info.get("profitMargins") is not None else "N/A",
+        "revenue_growth": round(info["revenueGrowth"] * 100, 2) if info.get("revenueGrowth") is not None else "N/A",
+        "free_cashflow": info.get("freeCashflow", "N/A"),
+        "52w_high": info.get("fiftyTwoWeekHigh", "N/A"),
+        "52w_low": info.get("fiftyTwoWeekLow", "N/A"),
+        "1m_return_pct": pct_1m
+    }
 
 def fetch_intraday_pulse(ticker: str, interval: str = "5m"):
     stock = yf.Ticker(ticker)
