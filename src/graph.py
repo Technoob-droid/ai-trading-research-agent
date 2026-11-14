@@ -44,6 +44,13 @@ def pm_judge_node(state: ResearchState):
     decision = llm.invoke([SystemMessage(content="You are a Senior Hedge Fund Portfolio Manager. Evaluate both sides of the debate objectively and output a risk-managed TradeDecision using ATR-14 for realistic stop-loss and target levels."), HumanMessage(content=prompt)])
     return {"trade_plan": decision.model_dump()}
 
+def report_compiler_node(state: ResearchState):
+    print("[7/7] Compiling Investment Committee Memo...")
+    m, t, pr = state["market_data"], state["technical_indicators"], state["trade_plan"]
+    cur = "INR " if state["ticker"].endswith((".NS", ".BO")) else "$"
+    lines = [f"# Investment Committee Memo: {m.get('name')} ({state['ticker']})", f"## PM Verdict: {pr.get('action')} ({pr.get('conviction_score')}/100)", f"- Entry: {pr.get('entry_zone')} / Stop: {pr.get('stop_loss')} / Target: {pr.get('target_price')} / R:R: {pr.get('risk_reward_ratio')}", f"- Rationale: {pr.get('rationale')}", f"- Price: {cur}{m.get('current_price')} / RSI: {t.get('rsi_14')} / ATR: {cur}{t.get('atr_14')}", "## Bull Case", state['bull_case'], state['bull_rebuttal'], "## Bear Case", state['bear_case'], state['bear_rebuttal']]
+    return {"final_report": "\n\n".join(lines)}
+
 def build_research_graph():
     workflow = StateGraph(ResearchState)
     workflow.add_node("market_data", market_data_node)
