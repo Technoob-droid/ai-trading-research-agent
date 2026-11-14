@@ -12,14 +12,53 @@ def fetch_market_metrics(ticker: str) -> dict:
     return {
         "name": info.get("shortName", ticker),
         "sector": info.get("sector", "N/A"),
+        "industry": info.get("industry", "N/A"),
         "current_price": info.get("currentPrice", info.get("regularMarketPrice", "N/A")),
         "market_cap": info.get("marketCap", "N/A"),
         "trailing_pe": info.get("trailingPE", "N/A"),
         "forward_pe": info.get("forwardPE", "N/A"),
+        "price_to_book": info.get("priceToBook", "N/A"),
+        "roe": round(info.get("returnOnEquity", 0) * 100, 2) if info.get("returnOnEquity") else "N/A",
+        "roa": round(info.get("returnOnAssets", 0) * 100, 2) if info.get("returnOnAssets") else "N/A"),
+        "debt_to_equity": info.get("debtToEquity", "N/A"),
+        "profit_margin": round(info.get("profitMargins", 0) * 100, 2) if info.get("profitMargins") else "N/A"),
+        "revenue_growth": round(info.get("revenueGrowth", 0) * 100, 2) if info.get("revenueGrowth") else "N/A",
+        "free_cashflow": info.get("freeCashflow", "N/A"),
         "52w_high": info.get("fiftyTwoWeekHigh", "N/A"),
         "52w_low": info.get("fiftyTwoWeekLow", "N/A"),
         "1m_return_pct": pct_change_1m
     }
+
+def fetch_intraday_pulse(ticker: str, interval: str = "5m"):
+    stock = yf.Ticker(ticker)
+    df = stock.history(period="5d", interval=interval)
+    if df.empty:
+        df = stock.history(period="1mo", interval="1d")
+    if df.empty:
+        return None, {}
+    df["SMA20"] = df["Close"].rolling(20).mean()
+    df["STD20"] = df["Close"].rolling(20).std()
+    df["BB_Upper"] = df["SMA20"] + 2 * df["STD20"]
+    df["BB_Lower"] = df["SMA20"] - 2 * df["STD20"]
+    df["VW"] = df["Close"] * df["Volume"]
+    df["VWAP"] = df["VW"].cumsum() / df["Volume"].cumsum().replace(0, float("nan"))
+    delta = df["Close"].diff()
+    gain = delta.where(delta > 0, 0.0).rolling(14).mean()
+    loss = (-delta.where(delta < 0, 0.0)).rolling(14).mean()
+    rs = gain / loss.replace(0, float("nan"))
+    df["RSI"] = 100 - (100 / (1 + rs))
+    last = df.iloc[-1]
+    prev = df["Close"].iloc[-2] if len(df) > 1 else last["Close"]
+    vol_avg = df["Volume"].tail(20).mean()
+    pulse = {
+        "last_price": round(float(last["Close"]), 2),
+        "change_pct": round(float(((last["Close"] - prev) / prev) * 100), 2),
+        "vwap": round(float(last["VWAP"]), 2) if last["VWAP"] == last["VWAP"] else "N/A",
+        "vol_surge": round(float(last["Volume"] / vol_avg), 2) if vol_avg > 0 else 1.0,
+        "rsi": round(float(last["RSI"]), 2) if last["RSI"] == last["RSI"] else "N/A",
+        "timestamp": str(df.index[-1])
+    }
+    return df, pulse
 
 def fetch_technical_indicators(ticker: str) -> dict:
     hist = yf.Ticker(ticker).history(period="1y")
@@ -47,6 +86,64 @@ def fetch_technical_indicators(ticker: str) -> dict:
         "sma_200": sma200,
         "trend_signal": trend
     }
+
+def fetch_latest_news(ticker: str, company_name: str) -> str:
+    client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+    query = f"{company_name} {ticker} stock financial news earnings analyst rating"
+    response = client.search(query=query, topic="news", max_results=5)
+    articles = [f"- {r['title']}: {r['content']} (Source: {r['url']})" for r in response.get("results", [])]
+    return "\n".join(articles) if articles else "No recent news found."
+
+def fetch_intraday_pulse(ticker: str, interval: str = "5m"):
+    stock = yf.Ticker(ticker)
+    df = stock.history(period="5d", interval=interval)
+    if df.empty:
+        df = stock.history(period="1mo", interval="1d")
+    if df.empty:
+        return None, {}
+    df["SMA20"] = df["Close"].rolling(20).mean()
+    df["STD20"] = df["Close"].rolling(20).std()
+    df["BB_Upper"] = df["SMA20"] + 2 * df["STD20"]
+    df["BB_Lower"] = df["SMA20"] - 2 * df["STD20"]
+    df["VW"] = df["Close"] * df["Volume"]
+    df["VWAP"] = df["VW"].cumsum() / df["Volume"].cumsum().replace(0, float("nan"))
+    delta = df["Close"].diff()
+    gain = delta.where(delta > 0, 0.0).rolling(14).mean()
+    loss = (-delta.where(delta < 0, 0.0)).rolling(14).mean()
+    rs = gain / loss.replace(0, float("nan"))
+    df["RSI"] = 100 - (100 / (1 + rs))
+    last = df.iloc[-1]
+    prev = df["Close"].iloc[-2] if len(df) > 1 else last["Close"]
+    vol_avg = df["Volume"].tail(20).mean()
+    pulse = {
+        "last_price": round(float(last["Close"]), 2),
+        "change_pct": round(float(((last["Close"] - prev) / prev) * 100), 2),
+        "vwap": round(float(last["VWAP"]), 2) if last["VWAP"] == last["VWAP"] else "N/A",
+        "vol_surge": round(float(last["Volume"] / vol_avg), 2) if vol_avg > 0 else 1.0,
+        "rsi": round(float(last["RSI"]), 2) if last["RSI"] == last["RSI"] else "N/A",
+        "timestamp": str(df.index[-1])
+    }
+    return df, pulse
+
+def fetch_technical_indicators(ticker: str) -> dict:
+    hist = yf.Ticker(ticker).history(period="1y")
+    if hist.empty or len(hist) < 30:
+        return {"status": "Insufficient historical data"}
+    close = hist["Close"]
+    delta = close.diff()
+    gain = delta.where(delta > 0, 0.0).rolling(14).mean()
+    loss = (-delta.where(delta < 0, 0.0)).rolling(14).mean()
+    rs = gain / loss.replace(0, float("nan"))
+    rsi_14 = round(float((100 - (100 / (1 + rs))).fillna(50).iloc[-1]), 2)
+    ema12 = close.ewm(span=12, adjust=False).mean()
+    ema26 = close.ewm(span=26, adjust=False).mean()
+    macd_line = ema12 - ema26
+    signal_line = macd_line.ewm(span=9, adjust=False).mean()
+    sma50 = round(float(close.rolling(50).mean().iloc[-1]), 2) if len(close) >= 50 else "N/A"
+    sma200 = round(float(close.rolling(200).mean().iloc[-1]), 2) if len(close) >= 200 else "N/A"
+    last_price = float(close.iloc[-1])
+    trend = "Bullish (Above SMA200)" if isinstance(sma200, float) and last_price > sma200 else "Bearish / Neutral"
+    return {"rsi_14": rsi_14, "macd": round(float(macd_line.iloc[-1]), 3), "macd_signal": round(float(signal_line.iloc[-1]), 3), "sma_50": sma50, "sma_200": sma200, "trend_signal": trend}
 
 def fetch_latest_news(ticker: str, company_name: str) -> str:
     client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
