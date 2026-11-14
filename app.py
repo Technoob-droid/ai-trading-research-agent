@@ -37,7 +37,7 @@ with tab1:
             p2.metric("Intraday VWAP", f"{cur}{pulse['vwap']}")
             p3.metric("Volume Surge", f"{pulse['vol_surge']}x")
             p4.metric("Intraday RSI (14)", f"{pulse['rsi']}")
-            p5.metric("Bollinger Width", f"{cur}{round(float(df['BB_Upper'].iloc[-1] - df['BB_Lower'].iloc[-1]), 2) if len(df)>20 else 'N/A'}")
+            p5.metric("Bollinger Width", f"{cur}{round(float(df['BB_Upper'].iloc[-1] - df['BB_Lower'].iloc[-1]), 2) if len(df)>20 else 'N/A'}")
             fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.6, 0.2, 0.2])
             fig.add_trace(go.Candlestick(x=df.index, open=df["Open"], high=df["High"], low=df["Low"], close=df["Close"], name="Price"), row=1, col=1)
             fig.add_trace(go.Scatter(x=df.index, y=df["VWAP"], name="VWAP", line=dict(color="cyan", width=1.5)), row=1, col=1)
