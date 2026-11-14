@@ -75,13 +75,26 @@ with tab2:
             {'Metric': 'Revenue Growth %', 'Value': str(m.get('revenue_growth')), 'Metric 2': 'RSI (14)', 'Value 2': str(t.get('rsi_14')), 'Metric 3': 'MACD / Signal', 'Value 3': f"{t.get('macd')} / {t.get('macd_signal')}"}
         ])
         st.table(fund_df)
+        tp = result.get("trade_plan", {})
+        st.success(f"PM VERDICT: {tp.get('action', 'N/A')}  --  Conviction: {tp.get('conviction_score', 0)}/100  --  Allocation: {tp.get('position_size_pct', 0)}%")
+        st.info(f"PM Rationale: {tp.get('rationale', '')}")
+        t1, t2, t3, t4, t5 = st.columns(5)
+        t1.metric("Entry Zone", str(tp.get("entry_zone", "N/A")))
+        t2.metric("Stop-Loss", str(tp.get("stop_loss", "N/A")))
+        t3.metric("Target Price", str(tp.get("target_price", "N/A")))
+        t4.metric("Risk / Reward", str(tp.get("risk_reward_ratio", "N/A")))
+        t5.metric("ATR (14-Day)", f"{cur}{t.get('atr_14', 'N/A')}")
         bull_col, bear_col = st.columns(2)
         with bull_col:
             st.markdown('### Bull Case')
             st.markdown(result['bull_case'])
+            st.markdown("**Bull Counter-Rebuttal:**")
+            st.markdown(result.get('bull_rebuttal', ''))
         with bear_col:
             st.markdown('### Bear Case & Risks')
             st.markdown(result['bear_case'])
+            st.markdown("**Bear Counter-Rebuttal:**")
+            st.markdown(result.get('bear_rebuttal', ''))
         st.expander('Recent News Catalysts').markdown(result['news_summary'])
         st.download_button('Download Research Memo (.md)', data=result['final_report'], file_name=f'{ticker}_research_report.md')
 
