@@ -74,9 +74,11 @@ def fetch_technical_indicators(ticker: str) -> dict:
     signal_line = macd_line.ewm(span=9, adjust=False).mean()
     sma50 = round(float(close.rolling(50).mean().iloc[-1]), 2) if len(close) >= 50 else "N/A"
     sma200 = round(float(close.rolling(200).mean().iloc[-1]), 2) if len(close) >= 200 else "N/A"
+    tr = (hist["High"] - hist["Low"]).combine((hist["High"] - close.shift()).abs(), max).combine((hist["Low"] - close.shift()).abs(), max)
+    atr_14 = round(float(tr.rolling(14).mean().iloc[-1]), 2)
     last_price = float(close.iloc[-1])
     trend = "Bullish (Above SMA200)" if isinstance(sma200, float) and last_price > sma200 else "Bearish / Neutral"
-    return {"rsi_14": rsi_14, "macd": round(float(macd_line.iloc[-1]), 3), "macd_signal": round(float(signal_line.iloc[-1]), 3), "sma_50": sma50, "sma_200": sma200, "trend_signal": trend}
+    return {"rsi_14": rsi_14, "macd": round(float(macd_line.iloc[-1]), 3), "macd_signal": round(float(signal_line.iloc[-1]), 3), "sma_50": sma50, "sma_200": sma200, "atr_14": atr_14, "trend_signal": trend}
 
 def fetch_latest_news(ticker: str, company_name: str) -> str:
     client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
