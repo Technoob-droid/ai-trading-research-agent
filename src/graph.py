@@ -31,15 +31,16 @@ def thesis_generation_node(state: ResearchState):
 def report_compiler_node(state: ResearchState):
     print("[5/5] Compiling final research memo...")
     m = state["market_data"]
+    cur = "₹" if state["ticker"].endswith((".NS", ".BO")) else "$"
     t = state["technical_indicators"]
     report = f"""# Equity Research Memo: {m.get('name')} ({state['ticker']})
 
 ## 1. Market Snapshot
 - **Sector:** {m.get('sector')}
-- +*Current Price:** ${m.get('current_price')}
+- +*Current Price:** {cur}{m.get('current_price')}
 - **1-Month Return:** {m.get('1m_return_pct')}%
 - **Trailing / Forward P/E:** {m.get('trailing_pe')} / {m.get('forward_pe')}
-- **52-Week Range:** ${m.get('52w_low')} - ${m.get('52w_high')}
+- **52-Week Range:** {cur}{m.get('52w_low')} - {cur}{m.get('52w_high')}
 
 ## 2. Technical Indicators
 - +*RSI (14-day):** {t.get('rsi_14')}

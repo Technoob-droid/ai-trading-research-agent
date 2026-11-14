@@ -32,7 +32,8 @@ with tab1:
         t = result["technical_indicators"]
         st.subheader(f"{m.get('name', ticker)} ({ticker}) -- [{t.get('trend_signal', 'N/A')}]")
         k1, k2, k3, k4, k5 = st.columns(5)
-        k1.metric("Price", f"${m.get('current_price')}")
+        cur = "₹" if ticker.endswith((".NS", ".BO")) else "$"
+        k1.metric("Price", f"{cur}{m.get('current_price')}")
         k2.metric("1M Return", f"{m.get('1m_return_pct')}%")
         k3.metric("Trailing P/E", f"{m.get('trailing_pe')}")
         k4.metric("RSI (14)", f"{t.get('rsi_14')}")
