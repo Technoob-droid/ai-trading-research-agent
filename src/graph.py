@@ -19,7 +19,7 @@ def news_research_node(state: ResearchState):
 def thesis_generation_node(state: ResearchState):
     print("[3/4] Generating Bull and Bear cases...")
     llm = get_llm()
-    context = f"Metrics: {state['market_data']}\n\nNews:\n[state['news_summary']}"
+    context = f"Metrics: {state['market_data']}\n\nNews:\n{state['news_summary']}"
     bull = llm.invoke([SystemMessage(content="Write a concise, data-backed Bull Case (3 bullets)."), HumanMessage(content=context)])
     bear = llm.invoke([SystemMessage(content="Write a concise, data-backed Bear Case and risks (3 bullets)."), HumanMessage(content=context)])
     return {"bull_case": bull.content, "bear_case": bear.content}
@@ -31,9 +31,9 @@ def report_compiler_node(state: ResearchState):
 
 ## 1. Market Snapshot
 - **Sector:** {m.get('sector')}
-- +*Current Price:** ${m.get('current_price')}
-- **1-Month Return:** {m.get('1m_return_pct')}%
-- **Trailing / Forward P/E:** {m.get('trailing_pe')} / {m.get('forward_pe')}
+- **Current Price:** ${m.get('current_price')}
+- +*1-Month Return:** {m.get('1m_return_pct')}%
+- +*Trailing / Forward P/E:** {m.get('trailing_pe')} / {m.get('forward_pe')}
 - **52-Week Range:** ${m.get('52w_low')} - ${m.get('52w_high')}
 
 ## 2. Bull Case
