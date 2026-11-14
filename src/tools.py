@@ -25,5 +25,5 @@ def fetch_latest_news(ticker: str, company_name: str) -> str:
     client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
     query = f"{company_name} {ticker} stock financial news earnings analyst rating"
     response = client.search(query=query, topic="news", max_results=5)
-    articles = [f"- {r['title']}: {r['content']} (Source: {r'url']})" for r in response.get("results", [])]
+    articles = [f"- {r['title']}: {r['content']} (Source: {r['url']})" for r in response.get("results", [])]
     return "\n".join(articles) if articles else "No recent news found."

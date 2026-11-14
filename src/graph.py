@@ -5,7 +5,7 @@ from src.state import ResearchState
 from src.tools import fetch_market_metrics, fetch_latest_news
 
 def get_llm():
-    return ChatGroq(model="llama-3.3-70b-versatile", temperature=0.2)
+    return ChatGroq(model="openai/gpt-oss-120b", temperature=0.2)
 
 def market_data_node(state: ResearchState):
     print(f"[1/4] Fetching market metrics for {state['ticker']}...")
