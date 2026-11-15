@@ -17,7 +17,11 @@ class ResilientGroq:
                 try:
                     llm = ChatGroq(model=m, temperature=0.2, max_retries=0)
                     if self.schema:
+                        import json
+                        sch = json.dumps(self.schema.model_json_schema())
+                        m2 = list(msgs) + [HumanMessage(content=f"Return valid JSON strictly matching this exact schema keys and types: {sch}")]
                         llm = llm.with_structured_output(self.schema, method="json_mode")
+                        return llm.invoke(m2)
                     return llm.invoke(msgs)
                 except Exception as e:
                     last_err = e

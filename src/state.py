@@ -1,5 +1,5 @@
 from typing import TypedDict, Dict, Any, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 class TradeDecision(BaseModel):
     action: Literal["STRONG BUY", "ACCUMULATE", "HOLD", "REDUCE", "SHORT"] = Field(description="Final investment committee action")
@@ -9,6 +9,11 @@ class TradeDecision(BaseModel):
     target_price: str = Field(description="Primary upside/downside price target")
     risk_reward_ratio: str = Field(description="Estimated reward-to-risk ratio, e.g. 2.4:1")
     position_size_pct: float = Field(ge=0.0, le=15.0, description="Suggested portfolio allocation percentage (0-15%)")
+    @field_validator("entry_zone", "stop_loss", "target_price", "risk_reward_ratio", mode="before")
+    @classmethod
+    def _as_str(cls, v):
+        return str(v) if v is not None else ""
+
     rationale: str = Field(description="2-3 sentence executive synthesis explaining why one side won the debate")
 
 class ResearchState(TypedDict):
