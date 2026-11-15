@@ -2,6 +2,7 @@ from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, END
 from src.state import ResearchState, TradeDecision
+from src.ledger import get_pm_lessons
 from src.tools import fetch_market_metrics, fetch_technical_indicators, fetch_latest_news, fetch_mtf_confluence
 
 def get_llm():
@@ -40,7 +41,7 @@ def pm_judge_node(state: ResearchState):
     print("[6/7] Portfolio Manager Judge synthesizing trade plan...")
     llm = get_llm().with_structured_output(TradeDecision, method="json_schema")
     cur = "INR " if state["ticker"].endswith((".NS", ".BO")) else "$"
-    prompt = f"Ticker: {state['ticker']} (Currency: {cur})\nFundamentals: {state['market_data']}\nTechnicals (including ATR-14): {state['technical_indicators']}\nMTF Confluence (Weekly/Daily/1H): {state.get('mtf_confluence')}\n\nBull Thesis:\n{state['bull_case']}\nBull Rebuttal:\n{state['bull_rebuttal']}\n\nBear Thesis:\n{state['bear_case']}\nBear Rebuttal:\n{state['bear_rebuttal']}"
+    prompt = f"Ticker: {state['ticker']} (Currency: {cur})\nFundamentals: {state['market_data']}\nTechnicals (including ATR-14): {state['technical_indicators']}\nMTF Confluence (Weekly/Daily/1H): {state.get('mtf_confluence')}\nPM Track-Record Memory: {get_pm_lessons()}\n\nBull Thesis:\n{state['bull_case']}\nBull Rebuttal:\n{state['bull_rebuttal']}\n\nBear Thesis:\n{state['bear_case']}\nBear Rebuttal:\n{state['bear_rebuttal']}"
     decision = llm.invoke([SystemMessage(content="You are a Senior Hedge Fund Portfolio Manager. Evaluate both sides of the debate objectively and output a risk-managed TradeDecision using ATR-14 for realistic stop-loss and target levels."), HumanMessage(content=prompt)])
     return {"trade_plan": decision.model_dump()}
 

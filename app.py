@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dotenv import load_dotenv
 from src.graph import build_research_graph
+from src.ledger import log_paper_trade, evaluate_ledger
 from src.backtester import compile_strategy, run_backtest, critique_backtest, optimize_strategy
 from src.tools import fetch_intraday_pulse
 
@@ -17,7 +18,7 @@ if not os.getenv('GROQ_API_KEY') or not os.getenv('TAVILY_API_KEY'):
     st.error('Missing GROQ_API_KEY or TAVILY_API_KEY in .env or Streamlit Secrets.')
     st.stop()
 
-tab1, tab2, tab3, tab4 = st.tabs(['Live Market Pulse', 'Deep Fundamental & AI Research', 'Portfolio Batch Screener', "AI Strategy Lab (Backtester)"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(['Live Market Pulse', 'Deep Fundamental & AI Research', 'Portfolio Batch Screener', "AI Strategy Lab (Backtester)", "Paper-Trading Ledger"])
 
 with tab1:
     a1, a2, a3, a4 = st.columns([2, 1, 1, 1])
@@ -92,6 +93,11 @@ with tab2:
         t3.metric("Target Price", str(tp.get("target_price", "N/A")))
         t4.metric("Risk / Reward", str(tp.get("risk_reward_ratio", "N/A")))
         t5.metric("ATR (14-Day)", f"{cur}{t.get('atr_14', 'N/A')}")
+        if st.button("Log Paper Trade to Ledger", key=f"log_{result.get('ticker')}"):
+            if log_paper_trade(result.get("ticker", ""), tp):
+                st.success("Trade logged to Paper-Trading Ledger (Tab 5)!")
+            else:
+                st.warning("Unable to parse numeric entry/stop/target levels for logging.")
         bull_col, bear_col = st.columns(2)
         with bull_col:
             st.markdown('### Bull Case')
@@ -192,3 +198,22 @@ with tab4:
                 st.dataframe(pd.DataFrame(os_res["trades"]), use_container_width=True)
         elif bs["trades"]:
             st.dataframe(pd.DataFrame(bs["trades"]), use_container_width=True)
+
+with tab5:
+    st.subheader("PM Paper-Trading Ledger & Closed-Loop Track Record")
+    if st.button("Refresh Live Prices & Evaluate Trades", type="primary"):
+        st.session_state["ledger_df"] = evaluate_ledger()
+    ldf = st.session_state.get("ledger_df", evaluate_ledger())
+    if ldf.empty:
+        st.info("No paper trades logged yet. Run a deep analysis in Tab 2 and click Log Paper Trade to Ledger.")
+    else:
+        closed = ldf[ldf["Status"].isin(["TARGET HIT", "STOPPED OUT"])]
+        wins = int((closed["Status"] == "TARGET HIT").sum()) if not closed.empty else 0
+        wr = round(wins / len(closed) * 100, 1) if not closed.empty else 0.0
+        avg_r = round(float(ldf["R_Multiple"].mean()), 2)
+        l1, l2, l3, l4 = st.columns(4)
+        l1.metric("Total Logged Trades", len(ldf))
+        l2.metric("Open Positions", int((ldf["Status"] == "OPEN").sum()))
+        l3.metric("Closed Win Rate", f"{wr}%")
+        l4.metric("Avg R-Multiple", f"{avg_r}R")
+        st.dataframe(ldf, use_container_width=True)
