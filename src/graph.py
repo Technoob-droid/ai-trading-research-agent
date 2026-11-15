@@ -18,7 +18,7 @@ def technicals_node(state: ResearchState):
 def news_research_node(state: ResearchState):
     print(f"[3/7] Searching recent financial news for {state['ticker']}...")
     company_name = state["market_data"].get("name", state["ticker"])
-    return {"news_summary": fetch_latest_news, fetch_mtf_confluence(state["ticker"], company_name)}
+    return {"news_summary": fetch_latest_news(state["ticker"], company_name)}
 
 def thesis_generation_node(state: ResearchState):
     print("[4/7] Generating initial Bull and Bear theses...")
