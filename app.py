@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dotenv import load_dotenv
 from src.graph import build_research_graph
-from src.ledger import log_paper_trade, evaluate_ledger, close_paper_trade, import_ledger_csv
+from src.ledger import log_paper_trade, evaluate_ledger, close_paper_trade, import_ledger_csv, close_paper_trade, import_ledger_csv
 from src.backtester import compile_strategy, run_backtest, critique_backtest, optimize_strategy
 from src.tools import fetch_intraday_pulse
 
@@ -201,14 +201,23 @@ with tab4:
 
 with tab5:
     st.subheader("PM Paper-Trading Ledger & Closed-Loop Track Record")
-    if st.button("Refresh Live Prices & Evaluate Trades", type="primary"):
+    b1, b2, b3 = st.columns([1.2, 1, 1.5])
+    if b1.button("Refresh Live Prices & Evaluate", type="primary", use_container_width=True):
         st.session_state["ledger_df"] = evaluate_ledger()
     ldf = st.session_state.get("ledger_df", evaluate_ledger())
+    if not ldf.empty:
+        b2.download_button("Download Ledger CSV", data=ldf.to_csv(index=False), file_name="pm_paper_trades.csv", mime="text/csv", use_container_width=True)
+    up_csv = b3.file_uploader("Restore / Merge Ledger CSV", type=["csv"], label_visibility="collapsed")
+    if up_csv is not None:
+        cnt = import_ledger_csv(up_csv)
+        if cnt:
+            st.session_state["ledger_df"] = evaluate_ledger()
+            st.success(f"Restored {cnt} trades into Paper-Trading Ledger!")
     if ldf.empty:
         st.info("No paper trades logged yet. Run a deep analysis in Tab 2 and click Log Paper Trade to Ledger.")
     else:
-        closed = ldf[ldf["Status"].isin(["TARGET HIT", "STOPPED OUT"])]
-        wins = int((closed["Status"] == "TARGET HIT").sum()) if not closed.empty else 0
+        closed = ldf[ldf["Status"].isin(["TARGET HIT", "STOPPED OUT", "CLOSED MANUAL"])]
+        wins = int((closed["R_Multiple"] > 0).sum()) if not closed.empty else 0
         wr = round(wins / len(closed) * 100, 1) if not closed.empty else 0.0
         avg_r = round(float(ldf["R_Multiple"].mean()), 2)
         l1, l2, l3, l4 = st.columns(4)
@@ -217,3 +226,11 @@ with tab5:
         l3.metric("Closed Win Rate", f"{wr}%")
         l4.metric("Avg R-Multiple", f"{avg_r}R")
         st.dataframe(ldf, use_container_width=True)
+        open_idx = ldf[ldf["Status"] == "OPEN"].index.tolist()
+        if open_idx:
+            mc1, mc2 = st.columns([2, 1])
+            sel_idx = mc1.selectbox("Select Open Position to Close at Market", open_idx, format_func=lambda i: f"#{i} - {ldf.at[i, 'Ticker']} ({ldf.at[i, 'Action']} @ {ldf.at[i, 'Entry']} - R: {ldf.at[i, 'R_Multiple']}R)")
+            if mc2.button("Close Selected Position", use_container_width=True):
+                if close_paper_trade(sel_idx):
+                    st.session_state["ledger_df"] = evaluate_ledger()
+                    st.rerun()
