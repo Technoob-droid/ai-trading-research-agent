@@ -61,7 +61,9 @@ with tab2:
     run_single = c2.button('Run AI Analysis', type='primary', width='stretch')
     if run_single and ticker:
         with st.spinner(f'Running 5-node research pipeline for {ticker}...'):
-            result = build_research_graph().invoke({'ticker': ticker})
+            st.session_state["tab2_result"] = build_research_graph().invoke({'ticker': ticker})
+    if "tab2_result" in st.session_state:
+        result = st.session_state["tab2_result"]
         m = result['market_data']
         t = result['technical_indicators']
         cur = 'INR ' if ticker.endswith(('.NS', '.BO')) else '$'
@@ -93,11 +95,9 @@ with tab2:
         t3.metric("Target Price", str(tp.get("target_price", "N/A")))
         t4.metric("Risk / Reward", str(tp.get("risk_reward_ratio", "N/A")))
         t5.metric("ATR (14-Day)", f"{cur}{t.get('atr_14', 'N/A')}")
-        if st.button("Log Paper Trade to Ledger", key=f"log_{result.get('ticker')}"):
-            if log_paper_trade(result.get("ticker", ""), tp):
-                st.success("Trade logged to Paper-Trading Ledger (Tab 5)!")
-            else:
-                st.warning("Unable to parse numeric entry/stop/target levels for logging.")
+        st.button("Log Paper Trade to Ledger", key=f"log_{result.get('ticker')}", on_click=lambda t=result.get("ticker", ""), p=tp: (log_paper_trade(t, p), st.session_state.update({"ledger_df": evaluate_ledger(), "last_logged": t})))
+        if st.session_state.get("last_logged") == result.get("ticker"):
+            st.success(f"Logged {result.get('ticker')} to Paper-Trading Ledger (Tab 5)!")
         bull_col, bear_col = st.columns(2)
         with bull_col:
             st.markdown('### Bull Case')
