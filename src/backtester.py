@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 from pydantic import BaseModel, Field
-from langchain_groq import ChatGroq
+from src.graph import get_llm
 from langchain_core.messages import HumanMessage, SystemMessage
 
 class StrategySpec(BaseModel):

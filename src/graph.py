@@ -5,9 +5,22 @@ from src.state import ResearchState, TradeDecision
 from src.ledger import get_pm_lessons
 from src.tools import fetch_market_metrics, fetch_technical_indicators, fetch_latest_news, fetch_mtf_confluence
 
+def _active_groq_models():
+    import os, requests
+    pref = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "meta-llama/llama-4-maverick-17b-128e-instruct", "meta-llama/llama-4-scout-17b-16e-instruct", "qwen/qwen3-32b", "llama-3.1-8b-instant"]
+    try:
+        r = requests.get("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {os.getenv('GROQ_API_KEY', '')}"}, timeout=5).json()
+        live = [m["id"] for m in r.get("data", []) if m.get("active", True) and not any(x in m["id"] for x in ["whisper", "guard", "tts", "playai", "embed"])]
+        ordered = [m for m in pref if m in live] + [m for m in live if m not in pref]
+        if ordered:
+            return ordered[:5]
+    except Exception:
+        pass
+    return pref
+
 def get_llm(schema=None):
-    models = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
-    llms = [ChatGroq(model=m, temperature=0.2).with_structured_output(schema) if schema else ChatGroq(model=m, temperature=0.2) for m in models]
+    models = _active_groq_models()
+    llms = [ChatGroq(model=m, temperature=0.2, max_retries=0).with_structured_output(schema) if schema else ChatGroq(model=m, temperature=0.2, max_retries=0) for m in models]
     return llms[0].with_fallbacks(llms[1:])
 
 def market_data_node(state: ResearchState):
