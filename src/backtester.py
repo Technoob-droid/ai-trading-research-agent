@@ -17,11 +17,13 @@ class StrategySpec(BaseModel):
     max_hold_days: int = Field(default=15, description="Max holding days")
 
 def compile_strategy(prompt: str) -> StrategySpec:
-    llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0.0).with_structured_output(StrategySpec, method="json_schema")
+    llms = [ChatGroq(model=m, temperature=0.0).with_structured_output(StrategySpec) for m in ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "meta-llama/llama-4-scout-17b-16e-instruct"]]
+    llm = llms[0].with_fallbacks(llms[1:])
     return llm.invoke([SystemMessage(content="Convert trading rule into StrategySpec JSON."), HumanMessage(content=prompt)])
 
 def critique_backtest(ticker: str, spec: StrategySpec, metrics: dict, trades: list) -> str:
-    llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0.2)
+    llms = [ChatGroq(model=m, temperature=0.2) for m in ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]]
+    llm = llms[0].with_fallbacks(llms[1:])
     prompt = f"Ticker: {ticker}\nSpec: {spec.model_dump()}\nMetrics: {metrics}\nRecent Trades: {trades[-10:]}"
     return llm.invoke([SystemMessage(content="Diagnose this backtest in 3 concise bullets: (1) Edge vs Buy-and-Hold, (2) Primary failure mode, (3) One concrete parameter tweak."), HumanMessage(content=prompt)]).content
 
