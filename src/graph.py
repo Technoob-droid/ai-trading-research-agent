@@ -63,7 +63,7 @@ def pm_judge_node(state: ResearchState):
     llm = get_llm(TradeDecision)
     cur = "INR " if state["ticker"].endswith((".NS", ".BO")) else "$"
     prompt = f"Ticker: {state['ticker']} (Currency: {cur})\nFundamentals: {state['market_data']}\nTechnicals (including ATR-14): {state['technical_indicators']}\nMTF Confluence (Weekly/Daily/1H): {state.get('mtf_confluence')}\nPM Track-Record Memory: {get_pm_lessons()}\n\nBull Thesis:\n{state['bull_case']}\nBull Rebuttal:\n{state['bull_rebuttal']}\n\nBear Thesis:\n{state['bear_case']}\nBear Rebuttal:\n{state['bear_rebuttal']}"
-    decision = llm.invoke([SystemMessage(content="You are a Senior Hedge Fund Portfolio Manager. Evaluate both sides of the debate objectively and output a risk-managed TradeDecision using ATR-14 for realistic stop-loss and target levels."), HumanMessage(content=prompt)])
+    decision = llm.invoke([SystemMessage(content="You are a Senior Hedge Fund Portfolio Manager. Evaluate both sides of the debate objectively and output a risk-managed TradeDecision using ATR-14 for realistic stop-loss and target levels. Respond strictly in valid JSON."), HumanMessage(content=prompt)])
     return {"trade_plan": decision.model_dump()}
 
 def report_compiler_node(state: ResearchState):
