@@ -7,7 +7,13 @@ from src.tools import fetch_market_metrics, fetch_technical_indicators, fetch_la
 
 def _active_groq_models():
     import os, requests
-    pref = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "meta-llama/llama-4-maverick-17b-128e-instruct", "meta-llama/llama-4-scout-17b-16e-instruct", "qwen/qwen3-32b", "llama-3.1-8b-instant"]
+    if not os.getenv("GROQ_API_KEY"):
+        try:
+            import streamlit as st
+            os.environ["GROQ_API_KEY"] = st.secrets.get("GROQ_API_KEY", "")
+        except Exception:
+            pass
+    pref = ["openai/gpt-oss-20b", "qwen/qwen3.8-27b", "qwen/qwen3-32b", "meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant", "openai/gpt-oss-120b"]
     try:
         r = requests.get("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {os.getenv('GROQ_API_KEY', '')}"}, timeout=5).json()
         live = [m["id"] for m in r.get("data", []) if m.get("active", True) and not any(x in m["id"] for x in ["whisper", "guard", "tts", "playai", "embed"])]
