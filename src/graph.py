@@ -5,29 +5,28 @@ from src.state import ResearchState, TradeDecision
 from src.ledger import get_pm_lessons
 from src.tools import fetch_market_metrics, fetch_technical_indicators, fetch_latest_news, fetch_mtf_confluence
 
-def _active_groq_models():
-    import os, requests
-    if not os.getenv("GROQ_API_KEY"):
-        try:
-            import streamlit as st
-            os.environ["GROQ_API_KEY"] = st.secrets.get("GROQ_API_KEY", "")
-        except Exception:
-            pass
-    pref = ["meta-llama/llama-4-scout-17b-16e-instruct", "meta-llama/llama-4-maverick-17b-128e-instruct", "qwen/qwen3-32b", "llama-3.1-8b-instant", "openai/gpt-oss-20b", "openai/gpt-oss-120b"]
-    try:
-        r = requests.get("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {os.getenv('GROQ_API_KEY', '')}"}, timeout=5).json()
-        live = [m["id"] for m in r.get("data", []) if m.get("active", True) and not any(x in m["id"] for x in ["whisper", "guard", "tts", "playai", "embed"])]
-        ordered = [m for m in pref if m in live] + [m for m in live if m not in pref]
-        if ordered:
-            return ordered[:5]
-    except Exception:
-        pass
-    return pref
+class ResilientGroq:
+    def __init__(self, schema=None):
+        self.schema = schema
+        self.models = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.3-70b-versatile", "qwen/qwen3-32b", "llama-3.1-8b-instant", "openai/gpt-oss-20b"]
+    def invoke(self, msgs):
+        import time
+        last_err = None
+        for attempt in range(2):
+            for m in self.models:
+                try:
+                    llm = ChatGroq(model=m, temperature=0.2, max_retries=0)
+                    if self.schema:
+                        llm = llm.with_structured_output(self.schema, method="json_mode")
+                    return llm.invoke(msgs)
+                except Exception as e:
+                    last_err = e
+                    continue
+            time.sleep(16)
+        raise last_err
 
 def get_llm(schema=None):
-    models = _active_groq_models()
-    llms = [ChatGroq(model=m, temperature=0.2, max_retries=0).with_structured_output(schema, method="json_mode") if schema else ChatGroq(model=m, temperature=0.2, max_retries=0) for m in models]
-    return llms[0].with_fallbacks(llms[1:])
+    return ResilientGroq(schema)
 
 def market_data_node(state: ResearchState):
     print(f"[1/7] Fetching market metrics for {state['ticker']}...")
