@@ -59,10 +59,33 @@ def evaluate_ledger() -> pd.DataFrame:
 
 def get_pm_lessons() -> str:
     df = load_ledger()
-    closed = df[df["Status"].isin(["TARGET HIT", "STOPPED OUT"])]
+    closed = df[df["Status"].isin(["TARGET HIT", "STOPPED OUT", "CLOSED MANUAL"])]
     if closed.empty:
         return "No closed paper trades yet."
     wins = (closed["Status"] == "TARGET HIT").sum()
     avg_r = round(float(closed["R_Multiple"].mean()), 2)
     recent = closed.tail(5)[["Ticker", "Action", "Status", "R_Multiple"]].to_dict(orient="records")
     return f"Historical PM Track Record: {wins}/{len(closed)} wins, Avg R={avg_r}. Recent closed trades: {recent}"
+
+def close_paper_trade(row_idx: int) -> bool:
+    df = load_ledger()
+    if df.empty or row_idx not in df.index or df.at[row_idx, "Status"] != "OPEN":
+        return False
+    r = df.loc[row_idx]
+    hist = yf.Ticker(r["Ticker"]).history(period="5d")
+    exit_px = round(float(hist["Close"].iloc[-1]), 2) if not hist.empty else float(r["Current_Exit"])
+    risk = abs(float(r["Entry"]) - float(r["Stop_Loss"])) or 1.0
+    is_short = "SELL" in str(r["Action"]).upper()
+    pnl = (float(r["Entry"]) - exit_px) if is_short else (exit_px - float(r["Entry"]))
+    df.at[row_idx, "Status"], df.at[row_idx, "Current_Exit"], df.at[row_idx, "R_Multiple"] = "CLOSED MANUAL", exit_px, round(pnl / risk, 2)
+    df.to_csv(LEDGER_PATH, index=False)
+    return True
+
+def import_ledger_csv(uploaded_file) -> int:
+    new_df = pd.read_csv(uploaded_file)
+    if not set(COLS).issubset(set(new_df.columns)):
+        return 0
+    cur = load_ledger()
+    merged = pd.concat([cur, new_df[COLS]], ignore_index=True).drop_duplicates(subset=["Date", "Ticker", "Entry"])
+    merged.to_csv(LEDGER_PATH, index=False)
+    return len(merged)

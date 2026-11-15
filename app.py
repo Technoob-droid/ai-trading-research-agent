@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dotenv import load_dotenv
 from src.graph import build_research_graph
-from src.ledger import log_paper_trade, evaluate_ledger
+from src.ledger import log_paper_trade, evaluate_ledger, close_paper_trade, import_ledger_csv
 from src.backtester import compile_strategy, run_backtest, critique_backtest, optimize_strategy
 from src.tools import fetch_intraday_pulse
 
