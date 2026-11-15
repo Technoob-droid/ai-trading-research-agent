@@ -13,7 +13,7 @@ def _active_groq_models():
             os.environ["GROQ_API_KEY"] = st.secrets.get("GROQ_API_KEY", "")
         except Exception:
             pass
-    pref = ["openai/gpt-oss-20b", "qwen/qwen3.8-27b", "qwen/qwen3-32b", "meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant", "openai/gpt-oss-120b"]
+    pref = ["meta-llama/llama-4-scout-17b-16e-instruct", "meta-llama/llama-4-maverick-17b-128e-instruct", "qwen/qwen3-32b", "llama-3.1-8b-instant", "openai/gpt-oss-20b", "openai/gpt-oss-120b"]
     try:
         r = requests.get("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {os.getenv('GROQ_API_KEY', '')}"}, timeout=5).json()
         live = [m["id"] for m in r.get("data", []) if m.get("active", True) and not any(x in m["id"] for x in ["whisper", "guard", "tts", "playai", "embed"])]
@@ -26,7 +26,7 @@ def _active_groq_models():
 
 def get_llm(schema=None):
     models = _active_groq_models()
-    llms = [ChatGroq(model=m, temperature=0.2, max_retries=0).with_structured_output(schema) if schema else ChatGroq(model=m, temperature=0.2, max_retries=0) for m in models]
+    llms = [ChatGroq(model=m, temperature=0.2, max_retries=0).with_structured_output(schema, method="json_mode") if schema else ChatGroq(model=m, temperature=0.2, max_retries=0) for m in models]
     return llms[0].with_fallbacks(llms[1:])
 
 def market_data_node(state: ResearchState):
