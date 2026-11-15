@@ -95,9 +95,11 @@ with tab2:
         t3.metric("Target Price", str(tp.get("target_price", "N/A")))
         t4.metric("Risk / Reward", str(tp.get("risk_reward_ratio", "N/A")))
         t5.metric("ATR (14-Day)", f"{cur}{t.get('atr_14', 'N/A')}")
-        st.button("Log Paper Trade to Ledger", key=f"log_{result.get('ticker')}", on_click=lambda t=result.get("ticker", ""), p=tp: (log_paper_trade(t, p), st.session_state.update({"ledger_df": evaluate_ledger(), "last_logged": t})))
+        st.button("Log Paper Trade to Ledger", key=f"log_{result.get('ticker')}", on_click=lambda t=result.get("ticker", ""), p=tp: (lambda ok: st.session_state.update({"last_logged": t if ok else None, "log_err": None if ok else t, "ledger_df": evaluate_ledger()}))(log_paper_trade(t, p)))
         if st.session_state.get("last_logged") == result.get("ticker"):
             st.success(f"Logged {result.get('ticker')} to Paper-Trading Ledger (Tab 5)!")
+        elif st.session_state.get("log_err") == result.get("ticker"):
+            st.warning("Invalid or inverted Stop-Loss / Target levels — trade not logged.")
         bull_col, bear_col = st.columns(2)
         with bull_col:
             st.markdown('### Bull Case')

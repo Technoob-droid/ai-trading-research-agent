@@ -24,11 +24,9 @@ def log_paper_trade(ticker: str, tp: dict) -> bool:
     entry = _parse_num(tp.get("entry_zone", 0))
     stop = _parse_num(tp.get("stop_loss", 0))
     targ = _parse_num(tp.get("target_price", 0))
-    act = str(tp.get("action", "BUY")).upper()
-    is_short = any(k in act for k in ["SELL", "SHORT", "REDUCE", "AVOID"])
     if entry <= 0 or stop <= 0 or targ <= 0:
         return False
-    if (not is_short and not (stop < entry < targ)) or (is_short and not (targ < entry < stop)):
+    if not ((stop < entry < targ) or (targ < entry < stop)):
         return False
     row = {"Date": datetime.now().strftime("%Y-%m-%d %H:%M"), "Ticker": ticker.upper(), "Action": tp.get("action", "BUY"), "Entry": entry, "Stop_Loss": stop, "Target": targ, "Conviction": tp.get("conviction_score", 0), "Status": "OPEN", "Current_Exit": entry, "R_Multiple": 0.0}
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
