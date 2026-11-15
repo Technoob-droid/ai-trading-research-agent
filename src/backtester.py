@@ -78,7 +78,18 @@ def run_backtest(ticker: str, spec: StrategySpec, period: str = "2y"):
     return eq_df, metrics, trades
 
 def optimize_strategy(ticker: str, spec: StrategySpec, metrics: dict, trades: list, critique: str) -> StrategySpec:
-    llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0.2).with_structured_output(StrategySpec, method="json_schema")
-    sys_msg = "You are a Quantitative Strategy Optimizer. Modify the StrategySpec parameters to fix the failure modes identified in the backtest critique and improve Profit Factor and Max Drawdown while still generating trades. Give the optimized strategy a clear updated name."
-    prompt = f"Ticker: {ticker}\nCurrent Spec: {spec.model_dump()}\nMetrics: {metrics}\nCritique: {critique}\nSample Trades: {trades[-10:]}"
-    return llm.invoke([SystemMessage(content=sys_msg), HumanMessage(content=prompt)])
+    candidates = [
+        spec.model_copy(update={"name": spec.name + " + SMA200 Filter", "above_sma200": True}),
+        spec.model_copy(update={"name": spec.name + " + Tight 1.0x ATR Stop", "atr_stop_mult": 1.0, "atr_target_mult": 2.0}),
+        spec.model_copy(update={"name": spec.name + " + SMA200 and Tight Stop", "above_sma200": True, "atr_stop_mult": 1.2, "atr_target_mult": 2.5}),
+        spec.model_copy(update={"name": spec.name + " + BB Lower Confluence", "below_bb_lower": True, "atr_stop_mult": 1.2}),
+        spec.model_copy(update={"name": spec.name + " + Quick 8d Swing", "max_hold_days": 8, "atr_stop_mult": 1.2, "atr_target_mult": 2.0}),
+    ]
+    best_spec, best_score = spec, -9999.0
+    for cand in candidates:
+        _, cm, _ = run_backtest(ticker, cand)
+        if cm and cm.get("trades", 0) >= 3:
+            score = cm["strat_ret"] - 0.5 * abs(cm["max_dd"])
+            if score > best_score:
+                best_score, best_spec = score, cand
+    return best_spec
