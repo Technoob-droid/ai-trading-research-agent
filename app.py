@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dotenv import load_dotenv
 from src.graph import build_research_graph
-from src.backtester import compile_strategy, run_backtest, critique_backtest
+from src.backtester import compile_strategy, run_backtest, critique_backtest, optimize_strategy
 from src.tools import fetch_intraday_pulse
 
 load_dotenv()
@@ -144,17 +144,44 @@ with tab4:
         if eq_df is None:
             st.error("Insufficient historical data for this ticker.")
         else:
-            st.success(f"Compiled Strategy: {spec.name}")
-            st.json(spec.model_dump())
-            k1, k2, k3, k4, k5 = st.columns(5)
-            k1.metric("Total Trades", m["trades"])
-            k2.metric("Win Rate", f"{m['win_rate']}%")
-            k3.metric("Profit Factor", m["profit_factor"])
-            k4.metric("Strategy Return", f"{m['strat_ret']}%", delta=f"{round(m['strat_ret'] - m['bh_ret'], 2)}% vs B&H")
-            k5.metric("Max Drawdown", f"{m['max_dd']}%")
-            st.line_chart(eq_df[["Strategy", "BuyHold"]])
             with st.spinner("Running AI Quant Post-Mortem Critique..."):
                 critique = critique_backtest(bt_ticker, spec, m, trades)
-            st.info(critique)
-            if trades:
-                st.dataframe(pd.DataFrame(trades), use_container_width=True)
+            st.session_state["bt_state"] = {"ticker": bt_ticker, "period": bt_period, "spec": spec, "eq_df": eq_df, "metrics": m, "trades": trades, "critique": critique}
+            st.session_state.pop("opt_state", None)
+    if "bt_state" in st.session_state:
+        bs = st.session_state["bt_state"]
+        m = bs["metrics"]
+        st.success(f"Baseline Strategy: {bs['spec'].name} ({bs['ticker']} - {bs['period']})")
+        st.json(bs["spec"].model_dump())
+        k1, k2, k3, k4, k5 = st.columns(5)
+        k1.metric("Total Trades", m["trades"])
+        k2.metric("Win Rate", f"{m['win_rate']}%")
+        k3.metric("Profit Factor", m["profit_factor"])
+        k4.metric("Strategy Return", f"{m['strat_ret']}%", delta=f"{round(m['strat_ret'] - m['bh_ret'], 2)}% vs B&H")
+        k5.metric("Max Drawdown", f"{m['max_dd']}%")
+        st.line_chart(bs["eq_df"][["Strategy", "BuyHold"]])
+        st.info(bs["critique"])
+        if st.button("1-Click AI Auto-Optimize Strategy", use_container_width=True):
+            with st.spinner("AI Quant Optimizer tuning rules based on post-mortem..."):
+                opt_spec = optimize_strategy(bs["ticker"], bs["spec"], m, bs["trades"], bs["critique"])
+                opt_eq, opt_m, opt_trades = run_backtest(bs["ticker"], opt_spec, period=bs["period"])
+                st.session_state["opt_state"] = {"spec": opt_spec, "eq_df": opt_eq, "metrics": opt_m, "trades": opt_trades}
+        if "opt_state" in st.session_state:
+            os_res = st.session_state["opt_state"]
+            om = os_res["metrics"]
+            st.divider()
+            st.success(f"AI-Optimized Strategy: {os_res['spec'].name}")
+            st.json(os_res["spec"].model_dump())
+            o1, o2, o3, o4, o5 = st.columns(5)
+            o1.metric("Trades", om["trades"], delta=om["trades"] - m["trades"])
+            o2.metric("Win Rate", f"{om['win_rate']}%", delta=f"{round(om['win_rate'] - m['win_rate'], 1)}%")
+            o3.metric("Profit Factor", om["profit_factor"], delta=round(om["profit_factor"] - m["profit_factor"], 2))
+            o4.metric("Strategy Return", f"{om['strat_ret']}%", delta=f"{round(om['strat_ret'] - m['strat_ret'], 2)}% vs Baseline")
+            o5.metric("Max Drawdown", f"{om['max_dd']}%", delta=f"{round(om['max_dd'] - m['max_dd'], 2)}%")
+            comp_df = bs["eq_df"][["Strategy", "BuyHold"]].rename(columns={"Strategy": "Baseline"})
+            comp_df["AI_Optimized"] = os_res["eq_df"]["Strategy"]
+            st.line_chart(comp_df)
+            if os_res["trades"]:
+                st.dataframe(pd.DataFrame(os_res["trades"]), use_container_width=True)
+        elif bs["trades"]:
+            st.dataframe(pd.DataFrame(bs["trades"]), use_container_width=True)

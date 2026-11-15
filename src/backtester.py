@@ -76,3 +76,9 @@ def run_backtest(ticker: str, spec: StrategySpec, period: str = "2y"):
     dd = ((eq_df["Strategy"] - eq_df["Strategy"].cummax()) / eq_df["Strategy"].cummax() * 100).min()
     metrics = {"trades": len(trades), "win_rate": round(len(wins) / len(trades) * 100, 1) if trades else 0.0, "profit_factor": round(sum(wins) / sum(losses), 2) if losses and sum(losses) > 0 else (99.0 if wins else 0.0), "strat_ret": round(equity - 100.0, 2), "bh_ret": round(float(eq_df["BuyHold"].iloc[-1]) - 100.0, 2), "max_dd": round(float(dd), 2)}
     return eq_df, metrics, trades
+
+def optimize_strategy(ticker: str, spec: StrategySpec, metrics: dict, trades: list, critique: str) -> StrategySpec:
+    llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0.2).with_structured_output(StrategySpec, method="json_schema")
+    sys_msg = "You are a Quantitative Strategy Optimizer. Modify the StrategySpec parameters to fix the failure modes identified in the backtest critique and improve Profit Factor and Max Drawdown while still generating trades. Give the optimized strategy a clear updated name."
+    prompt = f"Ticker: {ticker}\nCurrent Spec: {spec.model_dump()}\nMetrics: {metrics}\nCritique: {critique}\nSample Trades: {trades[-10:]}"
+    return llm.invoke([SystemMessage(content=sys_msg), HumanMessage(content=prompt)])
