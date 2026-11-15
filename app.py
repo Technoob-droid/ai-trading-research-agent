@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dotenv import load_dotenv
 from src.graph import build_research_graph
+from src.backtester import compile_strategy, run_backtest, critique_backtest
 from src.tools import fetch_intraday_pulse
 
 load_dotenv()
@@ -16,7 +17,7 @@ if not os.getenv('GROQ_API_KEY') or not os.getenv('TAVILY_API_KEY'):
     st.error('Missing GROQ_API_KEY or TAVILY_API_KEY in .env or Streamlit Secrets.')
     st.stop()
 
-tab1, tab2, tab3 = st.tabs(['Live Market Pulse', 'Deep Fundamental & AI Research', 'Portfolio Batch Screener'])
+tab1, tab2, tab3, tab4 = st.tabs(['Live Market Pulse', 'Deep Fundamental & AI Research', 'Portfolio Batch Screener', "AI Strategy Lab (Backtester)"])
 
 with tab1:
     a1, a2, a3, a4 = st.columns([2, 1, 1, 1])
@@ -129,3 +130,31 @@ with tab3:
 if auto_refresh:
     time.sleep(30)
     st.rerun()
+
+with tab4:
+    st.subheader("AI Natural-Language Strategy Compiler & Backtester")
+    bc1, bc2 = st.columns([1, 2])
+    bt_ticker = bc1.text_input("Backtest Ticker", value="NVDA", key="bt_ticker").strip().upper()
+    bt_period = bc1.selectbox("Historical Window", ["1y", "2y", "5y"], index=1, key="bt_period")
+    bt_prompt = bc2.text_area("Describe Your Strategy in Plain English", value="Buy when RSI 14 drops below 35 with a 1.5x ATR stop-loss, 2.5x ATR target, and max 15 day hold", height=105)
+    if st.button("Compile & Run Backtest", type="primary", use_container_width=True):
+        with st.spinner("Compiling strategy rules and simulating historical trades..."):
+            spec = compile_strategy(bt_prompt)
+            eq_df, m, trades = run_backtest(bt_ticker, spec, period=bt_period)
+        if eq_df is None:
+            st.error("Insufficient historical data for this ticker.")
+        else:
+            st.success(f"Compiled Strategy: {spec.name}")
+            st.json(spec.model_dump())
+            k1, k2, k3, k4, k5 = st.columns(5)
+            k1.metric("Total Trades", m["trades"])
+            k2.metric("Win Rate", f"{m['win_rate']}%")
+            k3.metric("Profit Factor", m["profit_factor"])
+            k4.metric("Strategy Return", f"{m['strat_ret']}%", delta=f"{round(m['strat_ret'] - m['bh_ret'], 2)}% vs B&H")
+            k5.metric("Max Drawdown", f"{m['max_dd']}%")
+            st.line_chart(eq_df[["Strategy", "BuyHold"]])
+            with st.spinner("Running AI Quant Post-Mortem Critique..."):
+                critique = critique_backtest(bt_ticker, spec, m, trades)
+            st.info(critique)
+            if trades:
+                st.dataframe(pd.DataFrame(trades), use_container_width=True)
