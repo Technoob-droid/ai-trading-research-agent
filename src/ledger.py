@@ -24,7 +24,11 @@ def log_paper_trade(ticker: str, tp: dict) -> bool:
     entry = _parse_num(tp.get("entry_zone", 0))
     stop = _parse_num(tp.get("stop_loss", 0))
     targ = _parse_num(tp.get("target_price", 0))
+    act = str(tp.get("action", "BUY")).upper()
+    is_short = any(k in act for k in ["SELL", "SHORT", "REDUCE", "AVOID"])
     if entry <= 0 or stop <= 0 or targ <= 0:
+        return False
+    if (not is_short and not (stop < entry < targ)) or (is_short and not (targ < entry < stop)):
         return False
     row = {"Date": datetime.now().strftime("%Y-%m-%d %H:%M"), "Ticker": ticker.upper(), "Action": tp.get("action", "BUY"), "Entry": entry, "Stop_Loss": stop, "Target": targ, "Conviction": tp.get("conviction_score", 0), "Status": "OPEN", "Current_Exit": entry, "R_Multiple": 0.0}
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
@@ -45,7 +49,7 @@ def evaluate_ledger() -> pd.DataFrame:
         hi_px = float(hist["High"].max())
         lo_px = float(hist["Low"].min())
         risk = abs(float(r["Entry"]) - float(r["Stop_Loss"])) or 1.0
-        is_short = "SELL" in str(r["Action"]).upper()
+        is_short = any(k in str(r["Action"]).upper() for k in ["SELL", "SHORT", "REDUCE", "AVOID"])
         if (not is_short and lo_px <= float(r["Stop_Loss"])) or (is_short and hi_px >= float(r["Stop_Loss"])):
             df.at[idx, "Status"], df.at[idx, "Current_Exit"], df.at[idx, "R_Multiple"] = "STOPPED OUT", float(r["Stop_Loss"]), -1.0
         elif (not is_short and hi_px >= float(r["Target"])) or (is_short and lo_px <= float(r["Target"])):
@@ -75,7 +79,7 @@ def close_paper_trade(row_idx: int) -> bool:
     hist = yf.Ticker(r["Ticker"]).history(period="5d")
     exit_px = round(float(hist["Close"].iloc[-1]), 2) if not hist.empty else float(r["Current_Exit"])
     risk = abs(float(r["Entry"]) - float(r["Stop_Loss"])) or 1.0
-    is_short = "SELL" in str(r["Action"]).upper()
+    is_short = any(k in str(r["Action"]).upper() for k in ["SELL", "SHORT", "REDUCE", "AVOID"])
     pnl = (float(r["Entry"]) - exit_px) if is_short else (exit_px - float(r["Entry"]))
     df.at[row_idx, "Status"], df.at[row_idx, "Current_Exit"], df.at[row_idx, "R_Multiple"] = "CLOSED MANUAL", exit_px, round(pnl / risk, 2)
     df.to_csv(LEDGER_PATH, index=False)
