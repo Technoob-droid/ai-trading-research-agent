@@ -67,7 +67,7 @@ with tab2:
         m = result['market_data']
         t = result['technical_indicators']
         cur = 'INR ' if ticker.endswith(('.NS', '.BO')) else '$'
-        st.subheader(f"{m.get('name', ticker)} ({ticker}) -- [{t.get('trend_signal', 'N/A')}]")
+        st.subheader(f"{m.get('name', ticker)} ({result.get("ticker", ticker)}) -- [{t.get('trend_signal', 'N/A')}]")
         k1, k2, k3, k4, k5 = st.columns(5)
         k1.metric('Price', f"{cur}{m.get('current_price')}")
         k2.metric('Trailing P/E', f"{m.get('trailing_pe')}")
