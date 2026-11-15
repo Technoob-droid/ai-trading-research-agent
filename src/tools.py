@@ -1,4 +1,5 @@
 import os
+from concurrent.futures import ThreadPoolExecutor
 import yfinance as yf
 from tavily import TavilyClient
 
@@ -86,3 +87,26 @@ def fetch_latest_news(ticker: str, company_name: str) -> str:
     response = client.search(query=query, topic="news", max_results=5)
     articles = [f"- {r['title']}: {r['content']} (Source: {r['url']})" for r in response.get("results", [])]
     return "\n".join(articles) if articles else "No recent news found."
+
+def fetch_mtf_confluence(ticker: str) -> dict:
+    specs = [("weekly", "2y", "1wk", 20), ("daily", "1y", "1d", 50), ("hourly", "1mo", "1h", 20)]
+    def _eval(item):
+        name, per, inv, ma_len = item
+        df = yf.Ticker(ticker).history(period=per, interval=inv)
+        if df.empty or len(df) < ma_len:
+            return name, {"bias": "Neutral", "score": 0, "price": "N/A", "ma": "N/A", "rsi": "N/A"}
+        c = df["Close"]
+        ma = float(c.rolling(ma_len).mean().iloc[-1])
+        px = float(c.iloc[-1])
+        d = c.diff()
+        g = d.where(d.gt(0), 0.0).rolling(14).mean()
+        l = (-d.where(d.lt(0), 0.0)).rolling(14).mean()
+        rsi = round(float((100 - (100 / (1 + g / l.replace(0, float("nan"))))).fillna(50).iloc[-1]), 1)
+        bull = px >= ma
+        return name, {"bias": "Bullish" if bull else "Bearish", "score": 1 if bull else -1, "price": round(px, 2), "ma": round(ma, 2), "rsi": rsi}
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        res = dict(ex.map(_eval, specs))
+    tot = res["weekly"]["score"] + res["daily"]["score"] + res["hourly"]["score"]
+    res["confluence_score"] = tot
+    res["verdict"] = "Strong Bullish Alignment" if tot == 3 else ("Strong Bearish Alignment" if tot == -3 else "Mixed / Divergence")
+    return res

@@ -15,6 +15,7 @@ class ResearchState(TypedDict):
     ticker: str
     market_data: Dict[str, Any]
     technical_indicators: Dict[str, Any]
+    mtf_confluence: Dict[str, Any]
     news_summary: str
     bull_case: str
     bear_case: str

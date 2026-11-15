@@ -76,6 +76,13 @@ with tab2:
             {'Metric': 'Revenue Growth %', 'Value': str(m.get('revenue_growth')), 'Metric 2': 'RSI (14)', 'Value 2': str(t.get('rsi_14')), 'Metric 3': 'MACD / Signal', 'Value 3': f"{t.get('macd')} / {t.get('macd_signal')}"}
         ])
         st.table(fund_df)
+        mtf = result.get("mtf_confluence", {})
+        if mtf:
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Weekly Macro", mtf.get("weekly", {}).get("bias", "N/A"), f"RSI {mtf.get('weekly', {}).get('rsi', 'N/A')}")
+            m2.metric("Daily Swing", mtf.get("daily", {}).get("bias", "N/A"), f"RSI {mtf.get('daily', {}).get('rsi', 'N/A')}")
+            m3.metric("1H Execution", mtf.get("hourly", {}).get("bias", "N/A"), f"RSI {mtf.get('hourly', {}).get('rsi', 'N/A')}")
+            m4.metric("MTF Confluence", f"{mtf.get('confluence_score', 0)} / 3", mtf.get("verdict", "N/A"))
         tp = result.get("trade_plan", {})
         st.success(f"PM VERDICT: {tp.get('action', 'N/A')}  --  Conviction: {tp.get('conviction_score', 0)}/100  --  Allocation: {tp.get('position_size_pct', 0)}%")
         st.info(f"PM Rationale: {tp.get('rationale', '')}")
